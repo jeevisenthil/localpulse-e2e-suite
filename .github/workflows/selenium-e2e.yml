@@ -1,0 +1,62 @@
+name: LocalPulse E2E Selenium Test Automation Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js Environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Project Dependencies
+        run: npm install
+
+      - name: Start Express Backend Server
+        run: |
+          npm start &
+          # Keep polling until server starts responding on port 3005
+          echo "Waiting for backend server to spin up..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3005 > /dev/null; then
+              echo "Backend server is up and listening on port 3005!"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Dynamic Smart UI Scanner
+        env:
+          TEST_APP_URL: http://localhost:3005
+          TEST_BROWSER: chrome
+          TEST_HEADLESS: 'true'
+        run: npm run test:scan
+
+      - name: Execute End-to-End Selenium Tests
+        env:
+          TEST_APP_URL: http://localhost:3005
+          TEST_BROWSER: chrome
+          TEST_HEADLESS: 'true'
+        run: npm test
+
+      - name: Upload HTML and Excel Reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: localpulse-e2e-reports
+          path: |
+            excel/E2E_Report.xlsx
+            reports/
+            logs/
+            data/discovered_metadata.json
