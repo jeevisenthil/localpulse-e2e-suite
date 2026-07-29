@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, ScrollView, TouchableOpacity,
   StyleSheet, Alert, StatusBar, KeyboardAvoidingView, Platform,
@@ -44,6 +44,18 @@ export default function PostScreen({ user }) {
   const [publishing, setPublishing] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState(null);
+  const soundRef = useRef(null);
+
+  const stopEmergencySound = async () => {
+    Vibration.cancel();
+    if (soundRef.current) {
+      try {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      } catch (e) {}
+    }
+  };
 
   const playEmergencySound = async () => {
     try {
@@ -51,15 +63,23 @@ export default function PostScreen({ user }) {
         playsInSilentModeIOS: true,
         shouldDuckAndroid: true,
       });
+
+      if (soundRef.current) {
+        try { await soundRef.current.unloadAsync(); } catch (e) {}
+      }
+
+      // Play emergency alarm audio for 5 seconds
       const { sound } = await Audio.Sound.createAsync(
         { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
-        { shouldPlay: true, volume: 1.0 }
+        { shouldPlay: true, isLooping: true, volume: 1.0 }
       );
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.didJustFinish) {
-          sound.unloadAsync();
-        }
-      });
+
+      soundRef.current = sound;
+
+      // Automatically stop sound and vibration after 5 seconds (5000 ms)
+      setTimeout(async () => {
+        await stopEmergencySound();
+      }, 5000);
     } catch (err) {
       console.log('Audio alert error:', err);
     }
@@ -92,24 +112,24 @@ export default function PostScreen({ user }) {
     setPublishing(false);
 
     if (result) {
-      // Trigger notification popup, audio alarm, and device vibration
+      // Trigger notification popup, 5-second audio alarm, and 5-second device vibration
       setNotificationData({ title: title.trim(), urgency });
       setShowNotification(true);
 
       if (urgency === 'urgent') {
-        // Play emergency audio beep sound + haptics + vibration pattern
+        // Play emergency audio beep sound for 5 seconds + haptics + 5-second vibration motor
         playEmergencySound();
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } catch (e) {}
         Vibration.cancel();
-        Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+        Vibration.vibrate(5000); // 5000ms = 5 Seconds Vibration
       } else {
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (e) {}
         Vibration.cancel();
-        Vibration.vibrate(400);
+        Vibration.vibrate(500);
       }
 
       setStep(5); // Success
@@ -396,7 +416,7 @@ export default function PostScreen({ user }) {
         visible={showNotification}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowNotification(false)}
+        onRequestClose={() => { stopEmergencySound(); setShowNotification(false); }}
       >
         <View style={styles.modalOverlay}>
           <View style={[
@@ -420,7 +440,7 @@ export default function PostScreen({ user }) {
                 styles.modalBtn,
                 notificationData?.urgency === 'urgent' ? styles.modalBtnUrgent : styles.modalBtnSuccess
               ]}
-              onPress={() => setShowNotification(false)}
+              onPress={() => { stopEmergencySound(); setShowNotification(false); }}
               activeOpacity={0.8}
             >
               <Text style={styles.modalBtnText}>Acknowledge</Text>
