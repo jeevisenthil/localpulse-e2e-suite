@@ -75,11 +75,13 @@ export default function PostScreen({ user }) {
       setShowNotification(true);
 
       if (urgency === 'urgent') {
-        // Double pulse vibration for urgent notices
-        Vibration.vibrate([0, 500, 100, 500]);
+        // Strong 1.2 second motor vibration for urgent notices
+        Vibration.cancel();
+        Vibration.vibrate(1200);
       } else {
-        // Light single pulse vibration for standard notices
-        Vibration.vibrate(100);
+        // 400ms standard vibration pulse
+        Vibration.cancel();
+        Vibration.vibrate(400);
       }
 
       setStep(5); // Success
