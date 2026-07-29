@@ -4,6 +4,8 @@ import {
   StyleSheet, Alert, StatusBar, KeyboardAvoidingView, Platform,
   Vibration, Modal,
 } from 'react-native';
+import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSize, BorderRadius, Shadow } from '../config/theme';
 import { getCategoryEmoji } from '../utils/helpers';
 import apiService from '../services/api';
@@ -43,6 +45,26 @@ export default function PostScreen({ user }) {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState(null);
 
+  const playEmergencySound = async () => {
+    try {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+      });
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
+        { shouldPlay: true, volume: 1.0 }
+      );
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (err) {
+      console.log('Audio alert error:', err);
+    }
+  };
+
   const handlePublish = async () => {
     if (!title.trim() || !description.trim() || !contact.trim()) {
       Alert.alert('Missing Fields', 'Please fill in all required fields.');
@@ -70,16 +92,22 @@ export default function PostScreen({ user }) {
     setPublishing(false);
 
     if (result) {
-      // Trigger notification popup and device vibration
+      // Trigger notification popup, audio alarm, and device vibration
       setNotificationData({ title: title.trim(), urgency });
       setShowNotification(true);
 
       if (urgency === 'urgent') {
-        // Strong 1.2 second motor vibration for urgent notices
+        // Play emergency audio beep sound + haptics + vibration pattern
+        playEmergencySound();
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } catch (e) {}
         Vibration.cancel();
-        Vibration.vibrate(1200);
+        Vibration.vibrate([0, 500, 200, 500, 200, 500]);
       } else {
-        // 400ms standard vibration pulse
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (e) {}
         Vibration.cancel();
         Vibration.vibrate(400);
       }
