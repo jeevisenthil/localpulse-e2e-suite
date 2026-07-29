@@ -19,12 +19,12 @@ async function generateExcelReport(results) {
 
   // Color Palette Definitions
   const colors = {
-    primary: 'FF3F51B5', // Indigo
-    accent: 'FFFFC107',  // Gold
-    success: 'FF10B981', // Emerald
-    error: 'FFEF4444',   // Crimson
-    warning: 'FFF59E0B', // Amber
-    zebra: 'FFF1F5F9',   // Light slate
+    primary: 'FF3F51B5',     // Indigo
+    accent: 'FFFFC107',      // Gold
+    success: 'FF10B981',     // Emerald
+    error: 'FFEF4444',       // Crimson
+    warning: 'FFF59E0B',     // Amber
+    zebra: 'FFF1F5F9',       // Light slate
     textLight: 'FFFFFFFF',
     textDark: 'FF1E293B',
     border: 'FFE2E8F0'
@@ -84,97 +84,125 @@ async function generateExcelReport(results) {
     });
   };
 
+  // Split tests by suite
+  const seleniumTests = results.tests.filter(t => t.module.includes('Selenium') || t.title.includes('TC-SEL-'));
+  const appiumTests = results.tests.filter(t => t.module.includes('Appium') || t.title.includes('TC-APP-'));
+  const vulnerabilityTests = results.tests.filter(t => t.module.includes('Vulnerability') || t.module.includes('Security') || t.title.includes('TC-SEC-'));
+  const loadTests = results.tests.filter(t => t.module.includes('Load') || t.module.includes('Performance') || t.title.includes('TC-LOD-'));
+
+  const suites = [
+    { name: 'Selenium Web UI Tests', data: seleniumTests },
+    { name: 'Appium Mobile Tests', data: appiumTests },
+    { name: 'Vulnerability Tests', data: vulnerabilityTests },
+    { name: 'Load / Concurrency Tests', data: loadTests }
+  ];
+
   // ==========================================
   // SHEET 1: SUMMARY
   // ==========================================
   const summarySheet = workbook.addWorksheet('Summary', { views: [{ showGridLines: true }] });
   summarySheet.columns = [
-    { header: 'Execution Date', key: 'execDate', width: 22 },
-    { header: 'Environment', key: 'env', width: 15 },
-    { header: 'Total Tests', key: 'total', width: 12 },
-    { header: 'Passed', key: 'passed', width: 12 },
-    { header: 'Failed', key: 'failed', width: 12 },
-    { header: 'Skipped', key: 'skipped', width: 12 },
-    { header: 'Pass Percentage', key: 'passRate', width: 18 },
-    { header: 'Execution Duration', key: 'duration', width: 20 }
+    { header: 'Test Suite Name', key: 'suiteName', width: 30 },
+    { header: 'Target Platform', key: 'platform', width: 20 },
+    { header: 'Total Tests', key: 'total', width: 15 },
+    { header: 'Passed', key: 'passed', width: 15 },
+    { header: 'Failed', key: 'failed', width: 15 },
+    { header: 'Skipped', key: 'skipped', width: 15 },
+    { header: 'Pass Rate', key: 'passRate', width: 15 }
   ];
-  
   styleHeader(summarySheet.getRow(1), colors.primary);
 
-  const total = results.total || 0;
-  const passed = results.passed || 0;
-  const failed = results.failed || 0;
-  const skipped = results.skipped || 0;
-  const passRate = total > 0 ? `${((passed / total) * 100).toFixed(1)}%` : '0.0%';
-  const duration = results.duration || '0s';
+  suites.forEach(suite => {
+    const total = suite.data.length;
+    const passed = suite.data.filter(t => t.status === 'passed').length;
+    const failed = suite.data.filter(t => t.status === 'failed').length;
+    const skipped = suite.data.filter(t => t.status === 'skipped').length;
+    const passRate = total > 0 ? `${((passed / total) * 100).toFixed(1)}%` : '0.0%';
+    
+    let platform = 'Web Browser';
+    if (suite.name.includes('Appium')) platform = 'Android Emulator';
+    if (suite.name.includes('Vulnerability')) platform = 'Web API / Forms';
+    if (suite.name.includes('Load')) platform = 'HTTP Backend';
 
-  summarySheet.addRow({
-    execDate: new Date().toISOString().replace('T', ' ').substring(0, 19),
-    env: 'QA-LocalSimulator',
-    total,
-    passed,
-    failed,
-    skipped,
-    passRate,
-    duration
-  });
-
-  // Apply colors to Passed/Failed values in summary
-  summarySheet.eachRow((row, rowNum) => {
-    if (rowNum > 1) {
-      row.getCell('passed').font = { bold: true, color: { argb: 'FF10B981' } };
-      row.getCell('failed').font = { bold: true, color: { argb: 'FFEF4444' } };
-      row.getCell('passRate').font = { bold: true, color: { argb: passed === total ? 'FF10B981' : 'FFF59E0B' } };
-    }
-  });
-  styleDataRows(summarySheet, 1, 8);
-
-
-  // ==========================================
-  // SHEET 2: TEST CASES
-  // ==========================================
-  const tcSheet = workbook.addWorksheet('Test Cases', { views: [{ showGridLines: true }] });
-  tcSheet.columns = [
-    { header: 'Test ID', key: 'id', width: 15 },
-    { header: 'Module', key: 'module', width: 18 },
-    { header: 'Scenario Name', key: 'scenario', width: 45 },
-    { header: 'Browser', key: 'browser', width: 12 },
-    { header: 'Status', key: 'status', width: 12 },
-    { header: 'Start Time', key: 'start', width: 22 },
-    { header: 'End Time', key: 'end', width: 22 },
-    { header: 'Duration', key: 'duration', width: 12 }
-  ];
-  styleHeader(tcSheet.getRow(1), colors.primary);
-
-  results.tests.forEach((t, idx) => {
-    const row = tcSheet.addRow({
-      id: `LP-TC-${String(idx + 1).padStart(3, '0')}`,
-      module: t.module || 'E2E Core',
-      scenario: t.title,
-      browser: config.browserName,
-      status: t.status.toUpperCase(),
-      start: t.start,
-      end: t.end,
-      duration: t.duration
+    const row = summarySheet.addRow({
+      suiteName: suite.name,
+      platform,
+      total,
+      passed,
+      failed,
+      skipped,
+      passRate
     });
 
-    const statusCell = row.getCell('status');
-    statusCell.font = { bold: true, color: { argb: t.status === 'passed' ? 'FF10B981' : 'FFEF4444' } };
-    statusCell.alignment = { horizontal: 'center' };
+    row.getCell('passed').font = { bold: true, color: { argb: 'FF10B981' } };
+    row.getCell('failed').font = { bold: true, color: { argb: 'FFEF4444' } };
+    row.getCell('passRate').font = { bold: true, color: { argb: 'FF10B981' } };
   });
-  styleDataRows(tcSheet, 1, 8);
 
+  // Global metrics summary block
+  summarySheet.addRow({});
+  summarySheet.addRow({
+    suiteName: 'GLOBAL SUMMARY',
+    platform: 'All Platforms',
+    total: results.total,
+    passed: results.passed,
+    failed: results.failed,
+    skipped: results.skipped,
+    passRate: results.total > 0 ? `${((results.passed / results.total) * 100).toFixed(1)}%` : '0.0%'
+  });
+
+  const lastRow = summarySheet.lastRow;
+  lastRow.eachCell(cell => {
+    cell.font = { bold: true, color: { argb: 'FF3F51B5' } };
+  });
+  styleDataRows(summarySheet, 1, 7);
+
+  // Helper function to populate generic test sheets
+  const populateTestSheet = (sheetName, testsList, headerColor) => {
+    const sheet = workbook.addWorksheet(sheetName, { views: [{ showGridLines: true }] });
+    sheet.columns = [
+      { header: 'Test ID', key: 'id', width: 18 },
+      { header: 'Scenario Title', key: 'scenario', width: 65 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'Start Time', key: 'start', width: 22 },
+      { header: 'End Time', key: 'end', width: 22 },
+      { header: 'Duration', key: 'duration', width: 15 }
+    ];
+    styleHeader(sheet.getRow(1), headerColor);
+
+    testsList.forEach(t => {
+      const row = sheet.addRow({
+        id: t.title.split(':')[0].trim(),
+        scenario: t.title.split(':').slice(1).join(':').trim() || t.title,
+        status: t.status.toUpperCase(),
+        start: t.start,
+        end: t.end,
+        duration: t.duration
+      });
+
+      const statusCell = row.getCell('status');
+      statusCell.font = { bold: true, color: { argb: t.status === 'passed' ? 'FF10B981' : 'FFEF4444' } };
+      statusCell.alignment = { horizontal: 'center' };
+    });
+    styleDataRows(sheet, 1, 6);
+  };
+
+  // Populate dynamic test sheet tabs
+  populateTestSheet('Selenium UI Tests', seleniumTests, colors.primary);
+  populateTestSheet('Appium Mobile Tests', appiumTests, 'FF009688'); // Teal
+  populateTestSheet('Vulnerability Tests', vulnerabilityTests, 'FF9C27B0'); // Purple
+  populateTestSheet('Load Tests', loadTests, 'FF00L0FF'); // Blue
 
   // ==========================================
-  // SHEET 3: FAILED TESTS
+  // SHEET: FAILED TESTS
   // ==========================================
   const failSheet = workbook.addWorksheet('Failed Tests', { views: [{ showGridLines: true }] });
   failSheet.columns = [
     { header: 'Test Name', key: 'name', width: 40 },
     { header: 'Failure Reason', key: 'reason', width: 60 },
     { header: 'Screenshot Path', key: 'screenshot', width: 50 },
-    { header: 'Browser', key: 'browser', width: 12 },
-    { header: 'URL', key: 'url', width: 40 }
+    { header: 'Browser/Driver', key: 'browser', width: 15 },
+    { header: 'URL/Endpoint', key: 'url', width: 40 }
   ];
   styleHeader(failSheet.getRow(1), colors.error);
 
@@ -190,9 +218,8 @@ async function generateExcelReport(results) {
   });
   styleDataRows(failSheet, 1, 5);
 
-
   // ==========================================
-  // SHEET 4: EXECUTION LOGS
+  // SHEET: EXECUTION LOGS
   // ==========================================
   const logSheet = workbook.addWorksheet('Execution Logs', { views: [{ showGridLines: true }] });
   logSheet.columns = [

@@ -19,7 +19,10 @@ const mocha = new Mocha({
 });
 
 // Load E2E spec files
-mocha.addFile(path.join(__dirname, '../tests/e2e.spec.js'));
+mocha.addFile(path.join(__dirname, '../tests/selenium.spec.js'));
+mocha.addFile(path.join(__dirname, '../tests/appium.spec.js'));
+mocha.addFile(path.join(__dirname, '../tests/vulnerability.spec.js'));
+mocha.addFile(path.join(__dirname, '../tests/load.spec.js'));
 
 logger.info('===============================================');
 logger.info('   Starting LocalPulse E2E Selenium Suite      ');
