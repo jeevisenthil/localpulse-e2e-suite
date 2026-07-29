@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSize, BorderRadius, Shadow } from '../config/theme';
 import { getCategoryEmoji } from '../utils/helpers';
 import apiService from '../services/api';
+import { EMERGENCY_ALERT_SOUND_URI } from '../utils/alertSound';
 
 const CATEGORIES = [
   { key: 'power', label: 'Power', emoji: '⚡' },
@@ -61,16 +62,18 @@ export default function PostScreen({ user }) {
     try {
       await Audio.setAudioModeAsync({
         playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+        staysActiveInBackground: true,
       });
 
       if (soundRef.current) {
         try { await soundRef.current.unloadAsync(); } catch (e) {}
       }
 
-      // Play emergency alarm audio for 5 seconds
+      // Play emergency alarm audio offline for 5 seconds
       const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
+        { uri: EMERGENCY_ALERT_SOUND_URI },
         { shouldPlay: true, isLooping: true, volume: 1.0 }
       );
 
