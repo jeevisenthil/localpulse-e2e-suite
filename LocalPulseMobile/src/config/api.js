@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
   // Using your computer's local IP so your physical device can connect to the backend
-  return 'http://10.52.250.99:3005/api';
+  return 'http://10.200.48.115:3005/api';
 };
 
 export const API_BASE = getBaseUrl();

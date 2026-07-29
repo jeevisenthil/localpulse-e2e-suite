@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Animated, KeyboardAvoidingView, Platform, StatusBar, Dimensions,
-  ScrollView
+  ScrollView, Alert
 } from 'react-native';
 import { Colors, Spacing, FontSize, BorderRadius, Shadow } from '../config/theme';
 import apiService from '../services/api';
@@ -79,9 +79,15 @@ export default function LoginScreen({ onLogin }) {
       onLogin(res.data);
     } else if (res.notVerified) {
       setVerifyUserId(res.userId);
-      setHintOtp(`Email OTP: ${res.emailOtp} | Phone OTP: ${res.phoneOtp}`);
+      const otps = `Email OTP: ${res.emailOtp} | Phone OTP: ${res.phoneOtp}`;
+      setHintOtp(otps);
       setError('Account is not verified yet. Please enter the OTP codes.');
       setView('VERIFICATION');
+      Alert.alert(
+        '🔑 Verification OTP Code (Demo)',
+        `This account is not verified yet.\n\n📧 Email OTP: ${res.emailOtp}\n📱 Phone OTP: ${res.phoneOtp}`,
+        [{ text: 'Use Codes' }]
+      );
     } else {
       setError(res.error || 'Invalid credentials');
     }
@@ -117,9 +123,15 @@ export default function LoginScreen({ onLogin }) {
 
     if (res.success) {
       setVerifyUserId(res.data.userId);
-      setHintOtp(`Email OTP: ${res.data.emailOtp} | Phone OTP: ${res.data.phoneOtp}`);
+      const otps = `Email OTP: ${res.data.emailOtp} | Phone OTP: ${res.data.phoneOtp}`;
+      setHintOtp(otps);
       setSuccessMessage(`Registration successful! Verify your email/phone.`);
       setView('VERIFICATION');
+      Alert.alert(
+        '🔑 Verification OTP Code (Demo)',
+        `For presentation purposes, here are your OTP codes:\n\n📧 Email OTP: ${res.data.emailOtp}\n📱 Phone OTP: ${res.data.phoneOtp}`,
+        [{ text: 'Use Codes' }]
+      );
     } else {
       setError(res.error || 'Failed to register account');
     }
@@ -162,9 +174,15 @@ export default function LoginScreen({ onLogin }) {
     setLoading(false);
 
     if (res.success) {
-      setHintResetCode(`Reset OTP Code: ${res.data.resetOtp}`);
+      const resetMsg = `Reset OTP Code: ${res.data.resetOtp}`;
+      setHintResetCode(resetMsg);
       setSuccessMessage('Reset code generated successfully!');
       setResetCodeRequested(true);
+      Alert.alert(
+        '🔑 Password Reset Code (Demo)',
+        `Your password reset code is:\n\n${res.data.resetOtp}`,
+        [{ text: 'Use Code' }]
+      );
     } else {
       setError(res.error || 'Email address not found');
     }

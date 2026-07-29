@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, TouchableOpacity,
   StyleSheet, Alert, StatusBar, KeyboardAvoidingView, Platform,
+  Vibration, Modal,
 } from 'react-native';
 import { Colors, Spacing, FontSize, BorderRadius, Shadow } from '../config/theme';
 import { getCategoryEmoji } from '../utils/helpers';
@@ -39,6 +40,8 @@ export default function PostScreen({ user }) {
   const [urgency, setUrgency] = useState('normal');
   const [expiryDays, setExpiryDays] = useState(3);
   const [publishing, setPublishing] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationData, setNotificationData] = useState(null);
 
   const handlePublish = async () => {
     if (!title.trim() || !description.trim() || !contact.trim()) {
@@ -67,6 +70,18 @@ export default function PostScreen({ user }) {
     setPublishing(false);
 
     if (result) {
+      // Trigger notification popup and device vibration
+      setNotificationData({ title: title.trim(), urgency });
+      setShowNotification(true);
+
+      if (urgency === 'urgent') {
+        // Double pulse vibration for urgent notices
+        Vibration.vibrate([0, 500, 100, 500]);
+      } else {
+        // Light single pulse vibration for standard notices
+        Vibration.vibrate(100);
+      }
+
       setStep(5); // Success
       // Reset form
       setTitle('');
@@ -345,6 +360,44 @@ export default function PostScreen({ user }) {
         {step === 4 && renderStep4()}
         {step === 5 && renderStep5()}
       </ScrollView>
+
+      {/* Custom Popup Notification */}
+      <Modal
+        visible={showNotification}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowNotification(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[
+            styles.modalContent,
+            notificationData?.urgency === 'urgent' && styles.modalContentUrgent
+          ]}>
+            <Text style={[
+              styles.modalTitle,
+              notificationData?.urgency === 'urgent' && { color: '#ff4d4d' }
+            ]}>
+              {notificationData?.urgency === 'urgent' ? '🚨 URGENT NOTICE POSTED!' : '📢 Notice Posted Successfully'}
+            </Text>
+            <Text style={[
+              styles.modalMessage,
+              notificationData?.urgency === 'urgent' && { color: '#ffcccc' }
+            ]}>
+              Your notice "{notificationData?.title}" is now visible to all members of the colony.
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.modalBtn,
+                notificationData?.urgency === 'urgent' ? styles.modalBtnUrgent : styles.modalBtnSuccess
+              ]}
+              onPress={() => setShowNotification(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnText}>Acknowledge</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -639,5 +692,64 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.xxxl,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: Colors.bgCard,
+    borderWidth: 2,
+    borderColor: Colors.success,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: '90%',
+    maxWidth: 340,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalContentUrgent: {
+    borderColor: Colors.urgent,
+    backgroundColor: '#2d080c', // Dark red background
+  },
+  modalTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: '800',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+    letterSpacing: 0.5,
+  },
+  modalMessage: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.xl,
+    lineHeight: 20,
+  },
+  modalBtn: {
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    minWidth: 160,
+    alignItems: 'center',
+  },
+  modalBtnSuccess: {
+    backgroundColor: Colors.success,
+  },
+  modalBtnUrgent: {
+    backgroundColor: Colors.urgent,
+  },
+  modalBtnText: {
+    color: '#ffffff',
+    fontSize: FontSize.md,
+    fontWeight: '800',
   },
 });
