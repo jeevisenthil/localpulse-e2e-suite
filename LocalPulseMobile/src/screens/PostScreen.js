@@ -73,10 +73,13 @@ export default function PostScreen({ user }) {
       // Play emergency alarm audio offline from local asset for 5 seconds
       const { sound } = await Audio.Sound.createAsync(
         require('../../assets/alert.wav'),
-        { shouldPlay: true, isLooping: true, volume: 1.0 }
+        { shouldPlay: false, isLooping: true, volume: 1.0 }
       );
 
       soundRef.current = sound;
+      await sound.setIsMutedAsync(false);
+      await sound.setVolumeAsync(1.0);
+      await sound.playAsync();
 
       // Automatically stop sound and vibration after 5 seconds (5000 ms)
       setTimeout(async () => {
